@@ -62,7 +62,31 @@ pub async fn handle(bot: Client, event: Event, state: State) -> anyhow::Result<(
             // Tell NaturalLook who spoke (so we look at them)
             if let Some((sender, _)) = plugins::brain::extract_sender_pub(&msg) {
                 let mut look = state.natural_look.inner.lock().unwrap();
-                systems::natural_look::on_player_chat(&mut look, sender);
+                systems::natural_look::on_player_chat(&mut look, sender.clone());
+            }
+
+            // Walker & Stalker Logic — Go to player if they talk
+            if let Some((sender, _)) = plugins::brain::extract_sender_pub(&msg) {
+                let target_pos = {
+                    let tab_list = bot.tab_list().read();
+                    // Find UUID by name in tab list
+                    tab_list.iter().find(|(_, info)| info.profile.name == sender)
+                        .map(|(_, info)| info.profile.uuid)
+                        .and_then(|uuid| {
+                            // Find entity by UUID in world
+                            bot.world().read().entity_by_uuid(&uuid).map(|e| e.pos())
+                        })
+                };
+
+                if let Some(pos) = target_pos {
+                    let x = pos.x.round() as i32;
+                    let y = pos.y.round() as i32;
+                    let z = pos.z.round() as i32;
+                    println!("[BOT] 🏃 Vi {} em [{},{},{}], indo até lá...", sender, x, y, z);
+                    
+                    let mut motor = state.motor.inner.lock().unwrap();
+                    motor.queue_urgent(systems::motor::MotorCommand::GotoBlock { x, y, z });
+                }
             }
 
             // Brain handles the rest

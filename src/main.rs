@@ -33,8 +33,8 @@ async fn main() -> anyhow::Result<()> {
 
         if let Ok(account) = account {
             let _result = azalea::ClientBuilder::new()
-        //        .add_plugins(PathfinderPlugin)
-                .set_handler(bot::handle)
+                .add_plugins(PathfinderPlugin)
+                .set_handler(bot::handle) // 🧠 O Cérebro
                 .start(account, address.as_str())
                 .await;
 
