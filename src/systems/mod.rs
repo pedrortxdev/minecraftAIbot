@@ -9,3 +9,6 @@ pub mod typos;
 pub mod judge;
 pub mod inventory_manager;
 pub mod reaction_delay;
+pub mod visual_cortex;
+pub mod economy;
+pub mod spider_sense;

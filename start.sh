@@ -1,15 +1,21 @@
 #!/bin/bash
 # Wrapper to start the bot
-# Ensure you have your .env file or export variables here
 
 cd "$(dirname "$0")"
 
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
+# Configurações de Conexão
+export SERVER_ADDR="minesraiz.aternos.me"
+export SERVER_PORT="35809"
 
-# Compile release if not exists (optional, mostly for dev/test)
-# cargo build --release
+# Autenticação (Vazio = Offline/Pirata)
+export BOT_NAME="PedroRTX"
+export BOT_EMAIL=""
+
+# O Cérebro (Gemini API)
+export GEMINI_API_KEY="AIzaSyAQsaKY12g9teuuWgsNBVt-wxSWyrIZnWY"
+export MODEL_FLASH="gemini-1.5-flash"
+export MODEL_PRO="gemini-2.5-pro"
 
 # Run
 ./target/release/frankfurt_sentinel
+
