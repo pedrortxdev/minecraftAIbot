@@ -4,6 +4,10 @@
 
 cd "$(dirname "$0")"
 
+if [ -f .env ]; then
+    export $(cat .env | xargs)
+fi
+
 # Compile release if not exists (optional, mostly for dev/test)
 # cargo build --release
 

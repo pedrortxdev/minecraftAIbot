@@ -1,6 +1,8 @@
 mod bot;
 mod config;
-pub mod plugins; // Make plugins accessible
+pub mod plugins;
+pub mod cognitive;
+pub mod systems;
 
 
 // use azalea::prelude::*;

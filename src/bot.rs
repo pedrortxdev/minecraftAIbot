@@ -1,14 +1,15 @@
-use crate::plugins; // Use crate::plugins
+use crate::plugins;
+use crate::cognitive;
+// use crate::systems;
 
 use azalea::prelude::*;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-#[derive(Clone, Component)] // Derive Component
+#[derive(Clone, Component)]
 pub struct State {
     pub anti_afk: plugins::anti_afk::State,
-    pub mining: plugins::mining::State,
-    pub brain: plugins::brain::State,
+    pub brain: plugins::brain::State, // Brain V2 now holds everything
     pub ping: plugins::ping::State,
 }
 
@@ -18,7 +19,6 @@ impl Default for State {
             anti_afk: plugins::anti_afk::State {
                 last_action: Arc::new(Mutex::new(Instant::now())),
             },
-            mining: plugins::mining::State::default(),
             brain: plugins::brain::State::default(),
             ping: plugins::ping::State::default(),
         }
@@ -28,11 +28,21 @@ impl Default for State {
 pub async fn handle(bot: Client, event: Event, state: State) -> anyhow::Result<()> {
     match &event {
         Event::Login => {
-            println!("Bot joined the server!");
+            println!("[BOT] ✅ Joined the server!");
+            // Record in memory
+            let mut memory = state.brain.memory.lock().unwrap();
+            memory.episodes.add(cognitive::memory::Episode {
+                timestamp: chrono::Utc::now(),
+                event_type: cognitive::memory::EpisodeType::ServerJoin,
+                description: "Entrei no servidor".into(),
+                location: None,
+                players_involved: vec![],
+                emotional_impact: 1,
+            });
         }
         Event::Chat(chat) => {
-            println!("[CHAT] {}", chat.message().to_string()); // Simplified chat logging
-            // Dispatch to brain
+            println!("[CHAT] {}", chat.message().to_string());
+            // Brain handles everything (social, personality, memory, response)
             let _ = plugins::brain::handle(bot.clone(), event.clone(), state.brain.clone()).await;
         }
         Event::Disconnect(reason) => {
@@ -42,26 +52,22 @@ pub async fn handle(bot: Client, event: Event, state: State) -> anyhow::Result<(
             } else {
                 println!("[DISCONNECT] No reason provided.");
             }
-        }
-        Event::Packet(_packet) => {
-            // Uncomment to debug raw packets (spammy!)
-            // println!("[PACKET] {:?}", _packet);
+            // Save memory on disconnect
+            let memory = state.brain.memory.lock().unwrap();
+            memory.save();
+            println!("[BOT] 💾 Memory saved on disconnect.");
         }
         _ => {}
     }
 
-    // Dispatch to plugins
-    // Note: In real Azalea, you might use a Plugin trait, but direct calling is fine for now.
-    // launching tasks for async handlers if needed, or just awaiting them if they are fast.
-    
-    // checks
+    // Tick-based plugins
     if let Event::Tick = &event {
-         plugins::auto_eat::handle(bot.clone(), event.clone(), ()).await?;
-         plugins::anti_afk::handle(bot.clone(), event.clone(), state.anti_afk.clone()).await?;
-         plugins::mining::handle(bot.clone(), event.clone(), state.mining.clone()).await?;
-         plugins::inventory::handle(bot.clone(), event.clone(), ()).await?;
-         plugins::ping::handle(bot.clone(), event.clone(), state.ping.clone()).await?;
+        plugins::auto_eat::handle(bot.clone(), event.clone(), ()).await?;
+        plugins::anti_afk::handle(bot.clone(), event.clone(), state.anti_afk.clone()).await?;
+        plugins::ping::handle(bot.clone(), event.clone(), state.ping.clone()).await?;
+        // Brain tick (personality decay)
+        let _ = plugins::brain::handle(bot.clone(), event.clone(), state.brain.clone()).await;
     }
-    
+
     Ok(())
 }
