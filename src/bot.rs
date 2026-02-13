@@ -35,6 +35,18 @@ pub async fn handle(bot: Client, event: Event, state: State) -> anyhow::Result<(
             // Dispatch to brain
             let _ = plugins::brain::handle(bot.clone(), event.clone(), state.brain.clone()).await;
         }
+        Event::Disconnect(reason) => {
+            println!("[DISCONNECT] Bot kicked/disconnected!");
+            if let Some(r) = reason {
+                println!("[DISCONNECT] Reason: {}", r.to_string());
+            } else {
+                println!("[DISCONNECT] No reason provided.");
+            }
+        }
+        Event::Packet(_packet) => {
+            // Uncomment to debug raw packets (spammy!)
+            // println!("[PACKET] {:?}", _packet);
+        }
         _ => {}
     }
 
