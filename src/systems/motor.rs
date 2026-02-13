@@ -159,11 +159,10 @@ pub async fn handle(bot: Client, _event: Event, state: MotorState) -> anyhow::Re
             }
             MotorCommand::RandomLook => {
                 let mut rng = rand::thread_rng();
-                let _yaw_delta: f32 = rng.gen_range(-30.0..30.0);
-                let _pitch_delta: f32 = rng.gen_range(-10.0..10.0);
-                // let current_yaw = bot.component::<Position>(); // Would need actual rotation
+                let _yaw_delta: f32 = rng.gen_range(-60.0..60.0);
+                let _pitch_delta: f32 = rng.gen_range(-20.0..20.0);
                 // bot.set_rotation(current_yaw + yaw_delta, current_pitch + pitch_delta);
-                println!("[MOTOR] 🔄 Random look fidget");
+                println!("[MOTOR] 🔄 Random look: yaw±{:.0}° pitch±{:.0}°", _yaw_delta, _pitch_delta);
             }
             MotorCommand::Jump => {
                 bot.jump();

@@ -63,16 +63,16 @@ pub fn compute_look_offset(state: &mut NaturalLookState) -> (f32, f32) {
 
     // === IDLE HEAD BOBBING (Perlin-like noise) ===
     // Slow, organic head movements when idle
-    let yaw_noise = smooth_noise(tick, 0.02, 8.0) as f32;  // ±8 degrees, slow
-    let pitch_noise = smooth_noise(tick, 0.015, 4.0) as f32; // ±4 degrees, slower
+    let yaw_noise = smooth_noise(tick, 0.02, 25.0) as f32;  // ±25 degrees, slow
+    let pitch_noise = smooth_noise(tick, 0.015, 12.0) as f32; // ±12 degrees, slower
 
     // === OCCASIONAL GLANCE ===
     // Every 3-7 seconds, do a quick glance in a random direction
     let _seconds_idle = state.idle_since.elapsed().as_secs_f32();
     let glance_yaw = if state.last_fidget.elapsed() > Duration::from_secs(rng.r#gen::<u64>() % 5 + 3) {
         state.last_fidget = Instant::now();
-        // Quick glance: 20-60 degrees in random direction
-        let glance: f32 = rng.r#gen::<f32>() * 40.0 + 20.0;
+        // Quick glance: 45-120 degrees in random direction (player really looking around)
+        let glance: f32 = rng.r#gen::<f32>() * 75.0 + 45.0;
         if rng.r#gen::<bool>() { glance } else { -glance }
     } else {
         0.0
