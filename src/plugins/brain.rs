@@ -309,70 +309,97 @@ pub async fn handle(_bot: Client, event: Event, state: State) -> anyhow::Result<
                 };
 
                 println!("[BRAIN] 📡 Calling Gemini API...");
-                match client.post(&url).json(&request_body).send().await {
-                    Ok(resp) => {
-                        let status = resp.status();
-                        if !status.is_success() {
-                            let body = resp.text().await.unwrap_or_else(|_| "<failed to read body>".into());
-                            println!("[BRAIN] ❌ API HTTP Error {}: {}", status, body);
-                            return;
-                        }
-                        let body_text = match resp.text().await {
-                            Ok(t) => t,
-                            Err(e) => {
-                                println!("[BRAIN] ❌ Failed to read response body: {}", e);
-                                return;
-                            }
-                        };
-                        match serde_json::from_str::<GeminiResponse>(&body_text) {
-                            Ok(json) => {
-                                match json.candidates {
-                                    Some(candidates) if !candidates.is_empty() => {
-                                        let first = &candidates[0];
-                                        if let Some(part) = first.content.parts.first() {
-                                            let raw_reply = part.text.trim().to_string();
 
-                                            // === TYPOS MIDDLEWARE ===
-                                            let current_mood = {
-                                                let p = state_clone.personality.lock().unwrap();
-                                                p.mood.clone()
-                                            };
-                                            let reply = typos::apply_typos(&raw_reply, &current_mood);
-
-                                            // Truncate to MC chat limit (256 chars)
-                                            let reply = if reply.len() > 250 {
-                                                reply[..250].to_string()
-                                            } else {
-                                                reply
-                                            };
-                                            println!("[BRAIN] 💬 Raw: {}", raw_reply);
-                                            println!("[BRAIN] 🤙 Sent: {}", reply);
-                                            bot_clone.chat(&reply); // 🔊 FALA, PEDRTX!
-
-                                            // Add to history
-                                            let mut history = state_clone.chat_history.lock().unwrap();
-                                            history.push(format!("<{}> {}", bot_name, reply));
-                                        } else {
-                                            println!("[BRAIN] ⚠️ Gemini returned candidate with no parts");
-                                        }
-                                    }
-                                    Some(_) => {
-                                        println!("[BRAIN] ⚠️ Gemini returned empty candidates array");
-                                    }
-                                    None => {
-                                        println!("[BRAIN] ⚠️ Gemini returned NO candidates. Body: {}", &body_text[..body_text.len().min(500)]);
-                                    }
+                // Retry loop for rate limits (429)
+                let max_retries = 3;
+                let mut attempt = 0;
+                let response_result = loop {
+                    attempt += 1;
+                    match client.post(&url).json(&request_body).send().await {
+                        Ok(resp) => {
+                            let status = resp.status();
+                            if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                                let body = resp.text().await.unwrap_or_default();
+                                if attempt < max_retries {
+                                    let wait_secs = 2u64.pow(attempt as u32); // 2s, 4s, 8s
+                                    println!("[BRAIN] ⏳ Rate limited (429), retry {}/{} in {}s...", attempt, max_retries, wait_secs);
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(wait_secs)).await;
+                                    continue;
+                                } else {
+                                    println!("[BRAIN] ❌ Rate limited (429) after {} retries. Quota esgotada.", max_retries);
+                                    println!("[BRAIN] 📋 {}", &body[..body.len().min(200)]);
+                                    break None;
                                 }
                             }
-                            Err(e) => {
-                                println!("[BRAIN] ❌ Failed to parse Gemini JSON: {}", e);
-                                println!("[BRAIN] 📋 Response body: {}", &body_text[..body_text.len().min(500)]);
+                            if !status.is_success() {
+                                let body = resp.text().await.unwrap_or_else(|_| "<failed to read body>".into());
+                                println!("[BRAIN] ❌ API HTTP Error {}: {}", status, body);
+                                break None;
+                            }
+                            break Some(resp);
+                        }
+                        Err(e) => {
+                            println!("[BRAIN] ❌ API Network Error: {}", e);
+                            println!("[BRAIN] 🔌 Check internet connection and API key");
+                            break None;
+                        }
+                    }
+                };
+
+                let resp = match response_result {
+                    Some(r) => r,
+                    None => return, // All retries failed or error
+                };
+                let body_text = match resp.text().await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        println!("[BRAIN] ❌ Failed to read response body: {}", e);
+                        return;
+                    }
+                };
+                match serde_json::from_str::<GeminiResponse>(&body_text) {
+                    Ok(json) => {
+                        match json.candidates {
+                            Some(candidates) if !candidates.is_empty() => {
+                                let first = &candidates[0];
+                                if let Some(part) = first.content.parts.first() {
+                                    let raw_reply = part.text.trim().to_string();
+
+                                    // === TYPOS MIDDLEWARE ===
+                                    let current_mood = {
+                                        let p = state_clone.personality.lock().unwrap();
+                                        p.mood.clone()
+                                    };
+                                    let reply = typos::apply_typos(&raw_reply, &current_mood);
+
+                                    // Truncate to MC chat limit (256 chars)
+                                    let reply = if reply.len() > 250 {
+                                        reply[..250].to_string()
+                                    } else {
+                                        reply
+                                    };
+                                    println!("[BRAIN] 💬 Raw: {}", raw_reply);
+                                    println!("[BRAIN] 🤙 Sent: {}", reply);
+                                    bot_clone.chat(&reply); // 🔊 FALA, PEDRTX!
+
+                                    // Add to history
+                                    let mut history = state_clone.chat_history.lock().unwrap();
+                                    history.push(format!("<{}> {}", bot_name, reply));
+                                } else {
+                                    println!("[BRAIN] ⚠️ Gemini returned candidate with no parts");
+                                }
+                            }
+                            Some(_) => {
+                                println!("[BRAIN] ⚠️ Gemini returned empty candidates array");
+                            }
+                            None => {
+                                println!("[BRAIN] ⚠️ Gemini returned NO candidates. Body: {}", &body_text[..body_text.len().min(500)]);
                             }
                         }
                     }
                     Err(e) => {
-                        println!("[BRAIN] ❌ API Network Error: {}", e);
-                        println!("[BRAIN] 🔌 Check internet connection and API key");
+                        println!("[BRAIN] ❌ Failed to parse Gemini JSON: {}", e);
+                        println!("[BRAIN] 📋 Response body: {}", &body_text[..body_text.len().min(500)]);
                     }
                 }
 
