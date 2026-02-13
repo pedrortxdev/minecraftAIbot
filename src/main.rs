@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
 
         if let Ok(account) = account {
             let _result = azalea::ClientBuilder::new()
-                .add_plugins(PathfinderPlugin)
+        //        .add_plugins(PathfinderPlugin)
                 .set_handler(bot::handle)
                 .start(account, address.as_str())
                 .await;
