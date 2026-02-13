@@ -6,6 +6,7 @@ use crate::cognitive::personality::{Personality, PersonalityEvent};
 use crate::cognitive::goal_planner::GoalPlanner;
 use crate::systems::world_scanner::WorldState;
 use crate::systems::social::{SocialEngine, ResponseStyle};
+use crate::systems::typos;
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, Duration};
 
@@ -154,6 +155,11 @@ fn extract_sender(message: &str) -> Option<(&str, &str)> {
     None
 }
 
+/// Public wrapper for bot.rs to use
+pub fn extract_sender_pub(message: &str) -> Option<(&str, &str)> {
+    extract_sender(message)
+}
+
 pub async fn handle(_bot: Client, event: Event, state: State) -> anyhow::Result<()> {
     match event {
         Event::Chat(chat) => {
@@ -279,14 +285,24 @@ pub async fn handle(_bot: Client, event: Event, state: State) -> anyhow::Result<
                             if let Some(candidates) = json.candidates {
                                 if let Some(first) = candidates.first() {
                                     if let Some(part) = first.content.parts.first() {
-                                        let reply = part.text.trim().to_string();
+                                        let raw_reply = part.text.trim().to_string();
+
+                                        // === TYPOS MIDDLEWARE ===
+                                        // Get current mood for typo intensity
+                                        let current_mood = {
+                                            let p = state_clone.personality.lock().unwrap();
+                                            p.mood.clone()
+                                        };
+                                        let reply = typos::apply_typos(&raw_reply, &current_mood);
+
                                         // Truncate to MC chat limit (256 chars)
                                         let reply = if reply.len() > 250 {
                                             reply[..250].to_string()
                                         } else {
                                             reply
                                         };
-                                        println!("[BRAIN] 💬 Reply: {}", reply);
+                                        println!("[BRAIN] 💬 Raw: {}", raw_reply);
+                                        println!("[BRAIN] 🤙 Sent: {}", reply);
                                         // bot.chat(&reply); // Enable when connected to real server
 
                                         // Add to history

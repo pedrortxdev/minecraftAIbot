@@ -4,3 +4,8 @@ pub mod farmer;
 pub mod combat;
 pub mod social;
 pub mod world_scanner;
+pub mod natural_look;
+pub mod typos;
+pub mod judge;
+pub mod inventory_manager;
+pub mod reaction_delay;
