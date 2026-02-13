@@ -1,0 +1,15 @@
+[Unit]
+Description=Frankfurt Sentinel Minecraft Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/bot/frankfurt_sentinel
+ExecStart=/home/bot/frankfurt_sentinel/target/release/frankfurt_sentinel
+Restart=always
+RestartSec=10
+EnvironmentFile=/home/bot/frankfurt_sentinel/.env
+
+[Install]
+WantedBy=multi-user.target
