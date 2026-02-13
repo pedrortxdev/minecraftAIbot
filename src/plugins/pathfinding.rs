@@ -1,3 +1,6 @@
+// Legacy A* pathfinder — azalea's native PathfinderPlugin handles real movement now.
+// Keeping for potential future internal planning use.
+
 use azalea::prelude::*;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::cmp::Ordering;
@@ -24,6 +27,7 @@ impl PartialOrd for Node {
     }
 }
 
+#[allow(dead_code)]
 pub struct Pathfinder;
 
 impl Pathfinder {
@@ -102,7 +106,7 @@ impl Pathfinder {
     }
 }
 
-// Public helper to be called from bot state
+#[allow(dead_code)]
 pub async fn goto_block(bot: Client, target: BlockPos) {
     let start = bot.position().into(); // approximate to BlockPos
     if let Some(path) = Pathfinder::compute_path(start, target) {

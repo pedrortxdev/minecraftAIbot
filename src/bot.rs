@@ -245,6 +245,34 @@ pub async fn handle(bot: Client, event: Event, state: State) -> anyhow::Result<(
             }
         }
 
+        // === [8.5] UPDATE BOT POSITION for motor ===
+        {
+            let pos = bot.position();
+            let mut motor = state.motor.inner.lock().unwrap();
+            motor.bot_position = [pos.x, pos.y, pos.z];
+        }
+
+        // === [8.6] AUTONOMOUS WANDERING — If idle too long, explore! ===
+        {
+            let should_wander = {
+                let motor = state.motor.inner.lock().unwrap();
+                let planner = state.brain.goals.lock().unwrap();
+                let idle_secs = motor.last_movement_time.elapsed().as_secs();
+
+                // Wander if: idle >60s, not already walking, no active goals, queue empty
+                idle_secs > 60
+                    && !motor.is_walking
+                    && planner.current_goal().is_none()
+                    && motor.queue_len() == 0
+            };
+
+            if should_wander {
+                let mut motor = state.motor.inner.lock().unwrap();
+                motor.queue(systems::motor::MotorCommand::WanderRandom);
+                println!("[BOT] 🦶 Idle too long, time to explore!");
+            }
+        }
+
         // === [9] MOTOR — Execute queued commands + human fidgets ===
         let _ = systems::motor::handle(bot.clone(), event.clone(), state.motor.clone()).await;
     }

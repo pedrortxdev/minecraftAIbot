@@ -3,6 +3,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use rand::Rng;
 use azalea::prelude::*;
+use azalea::BlockPos;
+use azalea::pathfinder::goals::BlockPosGoal;
+use azalea::pathfinder::PathfinderClientExt;
 
 // ============================================================
 // MOTOR SYSTEM — Translates intentions into actions
@@ -27,6 +30,10 @@ pub enum MotorCommand {
     WalkForward { duration_ticks: u32 },
     /// Emergency: set walk direction to flee
     FleeDirection { yaw: f32 },
+    /// Walk to a specific block using azalea pathfinder
+    GotoBlock { x: i32, y: i32, z: i32 },
+    /// Wander to a random nearby point (autonomous exploration)
+    WanderRandom,
     /// Log something to console (for debugging)
     Log(String),
 }
@@ -66,6 +73,12 @@ pub struct MotorInner {
     pub is_sprinting: bool,
     /// Is the bot currently sneaking?
     pub is_sneaking: bool,
+    /// Is the bot currently walking to a destination?
+    pub is_walking: bool,
+    /// Last time the bot moved (for idle detection)
+    pub last_movement_time: Instant,
+    /// Current bot position (updated from world state)
+    pub bot_position: [f64; 3],
 }
 
 impl Default for MotorInner {
@@ -78,6 +91,9 @@ impl Default for MotorInner {
             commands_executed: 0,
             is_sprinting: false,
             is_sneaking: false,
+            is_walking: false,
+            last_movement_time: Instant::now(),
+            bot_position: [0.0, 64.0, 0.0],
         }
     }
 }
@@ -199,14 +215,39 @@ pub async fn handle(bot: Client, _event: Event, state: MotorState) -> anyhow::Re
             }
             MotorCommand::FleeDirection { yaw } => {
                 // bot.set_rotation(yaw, 0.0);
-                // bot.sprint(SprintDirection::Forward);
                 motor.is_sprinting = true;
                 motor.active_action = Some(ActiveAction {
-                    command: MotorCommand::StartSprint { duration_ticks: 40 }, // 2 seconds of sprint
+                    command: MotorCommand::StartSprint { duration_ticks: 40 },
                     ticks_remaining: 40,
                     started_at: Instant::now(),
                 });
                 println!("[MOTOR] 🏃💨 FLEE! yaw:{:.1}", yaw);
+            }
+            MotorCommand::GotoBlock { x, y, z } => {
+                println!("[MOTOR] 🚶 Goto ({}, {}, {})", x, y, z);
+                motor.is_walking = true;
+                motor.last_movement_time = Instant::now();
+                let target = BlockPosGoal(BlockPos::new(x, y, z));
+                // Drop the lock before calling start_goto (it's non-blocking)
+                drop(motor);
+                bot.start_goto(target);
+                return Ok(());
+            }
+            MotorCommand::WanderRandom => {
+                let mut rng = rand::thread_rng();
+                let pos = motor.bot_position;
+                let dx: i32 = rng.gen_range(-25..25);
+                let dz: i32 = rng.gen_range(-25..25);
+                let target_x = pos[0] as i32 + dx;
+                let target_y = pos[1] as i32;
+                let target_z = pos[2] as i32 + dz;
+                println!("[MOTOR] 🌍 Wander to ({}, {}, {})", target_x, target_y, target_z);
+                motor.is_walking = true;
+                motor.last_movement_time = Instant::now();
+                let target = BlockPosGoal(BlockPos::new(target_x, target_y, target_z));
+                drop(motor);
+                bot.start_goto(target);
+                return Ok(());
             }
             MotorCommand::Log(ref msg) => {
                 println!("[MOTOR] 📋 {}", msg);

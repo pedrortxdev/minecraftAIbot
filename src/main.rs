@@ -8,6 +8,7 @@ pub mod systems;
 // use azalea::prelude::*;
 use config::Config;
 use std::time::Duration;
+use azalea::pathfinder::PathfinderPlugin;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -32,6 +33,7 @@ async fn main() -> anyhow::Result<()> {
 
         if let Ok(account) = account {
             let _result = azalea::ClientBuilder::new()
+                .add_plugins(PathfinderPlugin)
                 .set_handler(bot::handle)
                 .start(account, address.as_str())
                 .await;
