@@ -68,13 +68,23 @@ pub async fn handle(bot: Client, event: Event, state: State) -> anyhow::Result<(
             // Walker & Stalker Logic — Go to player if they talk
             if let Some((sender, _)) = plugins::brain::extract_sender_pub(&msg) {
                 let target_pos = {
-                    let tab_list = bot.tab_list().read();
+                    let tab_list = bot.tab_list();
                     // Find UUID by name in tab list
                     tab_list.iter().find(|(_, info)| info.profile.name == sender)
                         .map(|(_, info)| info.profile.uuid)
                         .and_then(|uuid| {
-                            // Find entity by UUID in world
-                            bot.world().read().entity_by_uuid(&uuid).map(|e| e.pos())
+                            // Find entity by UUID in world manually (Instance doesn't have entity_by_uuid)
+                            let world = bot.world().read(); // RwLockReadGuard<Instance>
+                            // Iterate entities to find the one with matching UUID
+                            // In Azalea 0.15, entities() returns something iterable with (EntityId, &Entity)
+                            // We assume Entity has 'uuid' field and 'pos()' method or field.
+                            // Using a safe manual iteration.
+                            for (_id, entity) in world.entities().iter() {
+                                if entity.uuid == uuid {
+                                    return Some(entity.pos());
+                                }
+                            }
+                            None
                         })
                 };
 
