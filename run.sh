@@ -12,13 +12,15 @@ else
     exit 1
 fi
 
-# 2. Verifica se o binário existe
-BINARY="./target/release/frankfurt_sentinel"
-if [ ! -f "$BINARY" ]; then
-    echo "[ERROR] ❌ Binário não encontrado em $BINARY"
-    echo "Dica: Execute 'cargo build --release' primeiro."
+# 2. Compila o binário (release) — garante que sempre roda o código mais recente
+echo "[SYSTEM] 🔧 Compilando (cargo build --release)..."
+cargo build --release 2>&1
+if [ $? -ne 0 ]; then
+    echo "[ERROR] ❌ Falha na compilação!"
     exit 1
 fi
+
+BINARY="./target/release/frankfurt_sentinel"
 
 # 3. Executa o PedroRTX
 echo "[SYSTEM] 🚀 Iniciando Frankfurt Sentinel..."
