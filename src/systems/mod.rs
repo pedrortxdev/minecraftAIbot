@@ -12,3 +12,4 @@ pub mod reaction_delay;
 pub mod visual_cortex;
 pub mod economy;
 pub mod spider_sense;
+pub mod motor;

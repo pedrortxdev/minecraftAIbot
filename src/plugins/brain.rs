@@ -7,6 +7,7 @@ use crate::cognitive::goal_planner::GoalPlanner;
 use crate::systems::world_scanner::WorldState;
 use crate::systems::social::{SocialEngine, ResponseStyle};
 use crate::systems::typos;
+use crate::systems::economy::Economy;
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, Duration};
 
@@ -70,6 +71,7 @@ pub struct State {
     pub goals: Arc<Mutex<GoalPlanner>>,
     pub world: Arc<Mutex<WorldState>>,
     pub social: Arc<Mutex<SocialEngine>>,
+    pub economy: Arc<Mutex<Economy>>,
     pub last_chat: Arc<Mutex<Instant>>,
     pub chat_history: Arc<Mutex<Vec<String>>>, // Last N chat messages for context
     pub save_counter: Arc<Mutex<u32>>,
@@ -83,6 +85,7 @@ impl Default for State {
             goals: Arc::new(Mutex::new(GoalPlanner::default())),
             world: Arc::new(Mutex::new(WorldState::default())),
             social: Arc::new(Mutex::new(SocialEngine::default())),
+            economy: Arc::new(Mutex::new(Economy::new())),
             last_chat: Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60))),
             chat_history: Arc::new(Mutex::new(Vec::new())),
             save_counter: Arc::new(Mutex::new(0)),
@@ -97,6 +100,7 @@ fn build_context(state: &State, incoming_message: &str, sender: &str) -> String 
     let goals = state.goals.lock().unwrap();
     let world = state.world.lock().unwrap();
     let social_engine = state.social.lock().unwrap();
+    let economy = state.economy.lock().unwrap();
     let chat_history = state.chat_history.lock().unwrap();
 
     // Get relationship context
@@ -106,6 +110,25 @@ fn build_context(state: &State, incoming_message: &str, sender: &str) -> String 
             sender, p.relationship, p.trust_level, p.times_met, p.notes
         )
     }).unwrap_or_else(|| format!("{} é um desconhecido. Primeira vez que vocês conversam.", sender));
+
+    // Economy context: debts, credit, trade decisions
+    let economy_ctx = economy.context_summary();
+
+    // Detect trade requests and inject trade decision
+    let trade_keywords = ["me dá", "me da", "empresta", "troca", "preciso de", "tem sobrando", "arruma"];
+    let msg_lower = incoming_message.to_lowercase();
+    let trade_hint = if trade_keywords.iter().any(|kw| msg_lower.contains(kw)) {
+        // Try to extract what item they want (very basic extraction)
+        let items = ["diamante", "ferro", "ouro", "esmeralda", "netherite", "comida",
+                     "diamond", "iron", "gold", "emerald", "bread", "redstone"];
+        let requested_item = items.iter()
+            .find(|i| msg_lower.contains(*i))
+            .unwrap_or(&"item");
+        let decision = economy.evaluate_request(sender, requested_item, 1);
+        format!("\n⚠️ TRADE REQUEST DETECTADO: {} quer {}. Sua decisão econômica: {:?}", sender, requested_item, decision)
+    } else {
+        String::new()
+    };
 
     // Recent chat for context
     let recent_chat = if chat_history.is_empty() {
@@ -126,6 +149,9 @@ r#"{}
 {}
 {}
 
+=== ECONOMIA (Dívidas e Favores) ===
+{}{}
+
 === CHAT RECENTE ===
 {}
 
@@ -137,6 +163,8 @@ r#"{}
         memory.episodes.context_summary(3),
         relationship_ctx,
         social_engine.context_summary(),
+        economy_ctx,
+        trade_hint,
         recent_chat,
         sender,
         incoming_message,
