@@ -9,7 +9,7 @@ use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
+    // tracing_subscriber::fmt::init();
     
     let config = Config::load();
     let address = format!("{}:{}", config.server_address, config.server_port);
