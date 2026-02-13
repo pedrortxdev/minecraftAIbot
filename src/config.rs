@@ -21,7 +21,7 @@ impl Config {
             bot_email: env::var("MS_EMAIL").unwrap_or_default(), // Empty for offline
             bot_name: env::var("BOT_NAME").unwrap_or_else(|_| "PedroRTX".to_string()),
             gemini_api_key: env::var("GEMINI_API_KEY").unwrap_or_else(|_| "AIzaSyAQsaKY12g9teuuWgsNBVt-wxSWyrIZnWY".to_string()),
-            model_flash: env::var("MODEL_FLASH").unwrap_or_else(|_| "gemini-1.5-flash".to_string()),
+            model_flash: env::var("MODEL_FLASH").unwrap_or_else(|_| "gemini-2.0-flash".to_string()),
             model_pro: env::var("MODEL_PRO").unwrap_or_else(|_| "gemini-2.5-pro".to_string()),
         }
     }

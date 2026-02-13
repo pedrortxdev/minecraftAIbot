@@ -13,7 +13,7 @@ export BOT_EMAIL=""
 
 # O Cérebro (Gemini API)
 export GEMINI_API_KEY="AIzaSyAQsaKY12g9teuuWgsNBVt-wxSWyrIZnWY"
-export MODEL_FLASH="gemini-1.5-flash"
+export MODEL_FLASH="gemini-2.0-flash"
 export MODEL_PRO="gemini-2.5-pro"
 
 # Run
